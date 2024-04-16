@@ -75,6 +75,7 @@ class BinSimConfig(object):
                                   'recv_protocol': 'tcp',
                                   'recv_ip': '127.0.0.1',
                                   'recv_port': 10000, # starting port in case of OSC
+                                  'add_channels': [2,3] # list of additional channels that will NOT go through convolver (0 and 1 will always go through)
         }
 
 
@@ -140,6 +141,22 @@ class BinSim(object):
         self.block = None
         self.stream = None
 
+         # Set channel mapping
+        add_channels = self.config.get("add_channels")
+        if (0 in add_channels) or (1 in add_channels):
+            #self.log.warning("0 or 1 is in your list of additional channels - this is probably a mistake!")
+            raise RuntimeError("Additional Channels may not inclue 0 or 1!")
+            
+        self.channels = [0,1]
+        self.channels.extend(add_channels)
+        self.log.info(self.channels)
+
+        if len(self.channels) != self.nChannels:
+            # Option 1:
+            # raise RuntimeError("Numbers of requested channels does not match channel list!")
+            # Option 2:
+            self.nChannels = len(self.channels)
+
         self.convolverHP, self.ds_convolver, self.early_convolver, self.late_convolver, self.sd_convolver,\
             self.input_Buffer, self.input_BufferHP, self.input_BufferSD, self.filterStorage, self.pkgReceiver,\
             self.soundHandler = self.initialize_pybinsim()
@@ -152,15 +169,17 @@ class BinSim(object):
 
     def stream_start(self):
         self.log.info("BinSim: stream_start")
+        asio_out = sd.AsioSettings(channel_selectors=self.channels)
         try:
             self.stream = sd.OutputStream(samplerate=self.sampleRate,
                                           dtype='float32',
-                                          channels=2,
+                                          channels=self.nChannels,
                                           latency="low",
                                           blocksize=self.blockSize,
+                                          extra_settings=asio_out,
                                           callback=audio_callback(self))
 
-           #pydevd.settrace(suspend=False, trace_only_current_thread=True)
+            #pydevd.settrace(suspend=False, trace_only_current_thread=True)
 
             with self.stream as s:
                 self.log.info(f"latency: {s.latency} seconds")
