@@ -193,7 +193,7 @@ class PkgReceiver(object):
         self.log.info("soundPath: {}".format(soundpath))
 
 
-    def handle_play(self, identifier, soundfile_list, start_channel=0, loop="single", player_name=None, volume=1.0, play="play"):
+    def handle_play(self, identifier, soundfile_list, start_channel=0, loop="single", player_name=None, volume=1.0, play="play", convolve=True):
         assert identifier == "/pyBinSimPlay"
 
         if player_name is None:
@@ -205,6 +205,7 @@ class PkgReceiver(object):
         assert type(loop) == str
         volume = float(volume)
         assert type(play) == str
+        assert type(convolve) == bool
 
         # parsing
         filepaths = parse_soundfile_list(soundfile_list)
@@ -223,7 +224,7 @@ class PkgReceiver(object):
         else:
             raise ValueError("play argument must be 'play' or 'pause'")
 
-        self.soundhandler.create_player(filepaths, player_name, start_channel, loop_state, play_state, volume)
+        self.soundhandler.create_player(filepaths, player_name, start_channel, loop_state, play_state, volume, convolve)
         self.log.info("starting player '%s' at channel %d, %s, %s, volume %f", 
                       player_name, start_channel, loop_state, play_state, volume)
 

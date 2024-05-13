@@ -75,7 +75,7 @@ class BinSimConfig(object):
                                   'recv_protocol': 'tcp',
                                   'recv_ip': '127.0.0.1',
                                   'recv_port': 10000, # starting port in case of OSC
-                                  'add_channels': [2,3] # list of additional channels that will NOT go through convolver (0 and 1 will always go through)
+                                  'add_channels': [2,3] # list of additional output channels that will NOT go through convolver (0 and 1 will always go through)
         }
 
 
@@ -139,21 +139,22 @@ class BinSim(object):
 
         self.result = None
         self.block = None
+        self.add_block = None
         self.stream = None
 
          # Set channel mapping
         add_channels = self.config.get("add_channels")
         if (0 in add_channels) or (1 in add_channels):
             #self.log.warning("0 or 1 is in your list of additional channels - this is probably a mistake!")
-            raise RuntimeError("Additional Channels may not inclue 0 or 1!")
+            raise RuntimeError("Additional Channels may not include 0 or 1!")
             
         self.channels = [0,1]
         self.channels.extend(add_channels)
         self.log.info(self.channels)
 
-        if len(self.channels) != self.nChannels:
+        if len(self.channels) < self.nChannels:
             # Option 1:
-            # raise RuntimeError("Numbers of requested channels does not match channel list!")
+            # raise RuntimeError("Numbers of input channels too low for output channel list!")
             # Option 2:
             self.nChannels = len(self.channels)
 
@@ -170,10 +171,11 @@ class BinSim(object):
     def stream_start(self):
         self.log.info("BinSim: stream_start")
         asio_out = sd.AsioSettings(channel_selectors=self.channels)
+        outchannels = len(self.channels)
         try:
             self.stream = sd.OutputStream(samplerate=self.sampleRate,
                                           dtype='float32',
-                                          channels=self.nChannels,
+                                          channels=outchannels,
                                           latency="low",
                                           blocksize=self.blockSize,
                                           extra_settings=asio_out,
@@ -194,10 +196,11 @@ class BinSim(object):
 
     def initialize_pybinsim(self):
         #self.result = np.empty([self.blockSize, 2], dtype=np.float32)
-        self.result = torch.zeros(2, self.blockSize, dtype=torch.float32)
+        self.result = torch.zeros(len(self.channels), self.blockSize, dtype=torch.float32)
 
         #self.block = np.zeros([self.nChannels, self.blockSize], dtype=np.float32)
         self.block = torch.zeros([self.nChannels, self.blockSize], dtype=torch.float32)
+        self.add_block = torch.zeros([len(self.channels) - 2, self.blockSize], dtype=torch.float32)
 
         ds_size = self.config.get('ds_filterSize')
         early_size = self.config.get('early_filterSize')
@@ -317,14 +320,19 @@ def audio_callback(binsim):
         binsim.current_config = binsim.pkgReceiver.get_current_config()
 
         amount_channels = binsim.current_config.get('maxChannels')
+
         if amount_channels == 0:
             return
 
+        add_output = binsim.channels[2:]
+
         if binsim.current_config.get('pauseAudioPlayback'):
-            binsim.block = torch.as_tensor(binsim.soundHandler.get_zeros(), dtype=torch.float32)
+            binsim.block, binsim.add_block = binsim.soundHandler.get_zeros()
         else:
             loudness = callback.config.get('loudnessFactor')
-            binsim.block = torch.as_tensor(binsim.soundHandler.get_block(loudness), dtype=torch.float32)
+            binsim.block, binsim.add_block = binsim.soundHandler.get_block(loudness)
+
+        binsim.block = torch.as_tensor(binsim.block, dtype=torch.float32)
 
         if binsim.current_config.get('pauseConvolution'):
             if amount_channels == 2:

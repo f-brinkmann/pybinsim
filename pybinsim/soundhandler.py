@@ -56,7 +56,7 @@ class SoundHandler(object):
     without acquiring this lock.
     """
 
-    def __init__(self, block_size, n_channels, fs):
+    def __init__(self, block_size, n_channels, nc_channels, fs):
         self._fs: Final[int] = fs
         self._n_channels: Final[int] = n_channels
         self._block_size: Final[int] = block_size
@@ -67,12 +67,18 @@ class SoundHandler(object):
         self._output_buffer = np.zeros(
             (self._n_channels, self._block_size), dtype=np.float32)
 
-    def create_player(self, filepaths, player_name, start_channel=0, loop_state=LoopState.SINGLE, play_state=PlayState.PLAYING, volume=1.):
+        # the stuff that is supposed to not go through the convolver
+        self._nc_channels: Final[int] = nc_channels
+        self._nc_output_buffer = np.zeros(
+            (self._nc_channels, self._block_size), dtype=np.float32)
+
+    def create_player(self, filepaths, player_name, start_channel=0, loop_state=LoopState.SINGLE, play_state=PlayState.PLAYING, volume=1., convolve=True):
         entry = PlayerEntry(
             Player(filepaths, play_state, loop_state,
                    self._block_size, self._fs),
             start_channel,
             volume,
+            convolve,
             threading.Lock()
         )
         with self._players_lock:
@@ -114,18 +120,29 @@ class SoundHandler(object):
         should only be called from one thread.
         """
         self._output_buffer.fill(0.)
+        self._nc_output_buffer.fill(0.)
         with self._players_lock:
             for entry in self._players.values():
-                with entry.lock:
-                    block = entry.player.get_block()
-                    if block is None:
-                        continue
-                    volume = entry.volume * loudness
-                    add_at_start_channel(
-                        self._output_buffer, volume * block, entry.start_channel)
+                if entry.convolve:
+                    with entry.lock:
+                        block = entry.player.get_block()
+                        if block is None:
+                            continue
+                        volume = entry.volume * loudness
+                        add_at_start_channel(
+                            self._output_buffer, volume * block, entry.start_channel)
+                else:
+                    with entry.lock:
+                        nc_block = entry.player.get_block()
+                        if nc_block is None:
+                            continue
+                        volume = entry.volume * loudness
+                        #TODO this might need replacing with a different (albeit similar) function that handles addition of sources into one channel correctly
+                        add_at_start_channel(
+                            self._nc_output_buffer, volume * nc_block, entry.start_channel)
             # TODO This might be better done in a background thread so it doesn't block the audio thread, but that needs some benchmarking
             self._remove_stopped_players()
-        return self._output_buffer
+        return self._output_buffer, self._nc_output_buffer
 
     def get_zeros(self):
         """Fill the internal buffer with zeros and return it.
@@ -137,7 +154,8 @@ class SoundHandler(object):
         should only be called from one thread.
         """
         self._output_buffer.fill(0.)
-        return self._output_buffer
+        self._nc_output_buffer.fill(0.)
+        return self._output_buffer, self._nc_output_buffer
 
     def _remove_stopped_players(self):
         players_to_delete = [name for (name, entry) in self._players.items(
