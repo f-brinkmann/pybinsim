@@ -31,8 +31,8 @@ import sounddevice as sd
 from pybinsim.convolver import ConvolverTorch
 from pybinsim.filterstorage import FilterStorage
 from pybinsim.pose import Pose, SourcePose
-from pybinsim.parsing import parse_boolean, parse_soundfile_list
-from pybinsim.soundhandler import SoundHandler, LoopState
+from pybinsim.parsing import parse_boolean, parse_soundfile_list, parse_channel_list
+from pybinsim.soundhandler import SoundHandler, LoopState, PlayState
 from pybinsim.input_buffer import InputBufferMulti
 from pybinsim.pkg_receiver import CONFIG_SOUNDFILE_PLAYER_NAME, PkgReceiver
 from pybinsim.zmq_receiver import ZmqReceiver
@@ -75,7 +75,7 @@ class BinSimConfig(object):
                                   'recv_protocol': 'tcp',
                                   'recv_ip': '127.0.0.1',
                                   'recv_port': 10000, # starting port in case of OSC
-                                  'add_channels': [2,3] # list of additional output channels that will NOT go through convolver (0 and 1 will always go through)
+                                  'add_channels': '2,3' # list of additional output channels that will NOT go through convolver (0 and 1 will always go through)
         }
 
 
@@ -125,6 +125,9 @@ class BinSim(object):
         self.log = logging.getLogger("pybinsim.BinSim")
         self.log.info("BinSim: init")
 
+        # TODO: Just for testing; Remove THIS!!!
+        #sd.default.device = 26
+
         self.cpu_usage_update_rate = 100
         self.time_usage = np.zeros(self.cpu_usage_update_rate-1, dtype='float32')
         self.time_usage_index = 0
@@ -143,7 +146,8 @@ class BinSim(object):
         self.stream = None
 
          # Set channel mapping
-        add_channels = self.config.get("add_channels")
+        add_channels_str = self.config.get("add_channels")
+        add_channels = parse_channel_list(add_channels_str)
         if (0 in add_channels) or (1 in add_channels):
             #self.log.warning("0 or 1 is in your list of additional channels - this is probably a mistake!")
             raise RuntimeError("Additional Channels may not include 0 or 1!")
@@ -235,11 +239,12 @@ class BinSim(object):
 
         # Create SoundHandler
         soundHandler = SoundHandler(self.blockSize, self.nChannels,
-                                    self.sampleRate)
+                                   len(self.channels)-2, self.sampleRate)
 
         soundfiles = parse_soundfile_list(self.config.get('soundfile'))
         loop_config = LoopState.LOOP if self.config.get('loopSound') else LoopState.SINGLE
         soundHandler.create_player(soundfiles, CONFIG_SOUNDFILE_PLAYER_NAME, loop_state=loop_config)
+        soundHandler.create_player(soundfiles, "out_2", 8, loop_state=LoopState.LOOP, play_state=PlayState.PLAYING, volume=1.0, convolve=False)
 
         # Start a PkgReceiver
         recv_type = self.config.get("recv_type")
@@ -403,7 +408,12 @@ def audio_callback(binsim):
                 result_buffer = binsim.input_BufferHP.process(binsim.result)
                 binsim.result = binsim.convolverHP.process(result_buffer)[:,0,:]
 
-        outdata[:] = np.transpose(binsim.result.detach().cpu().numpy())
+        outdata[:,0:2] = np.transpose(binsim.result.detach().cpu().numpy())
+        outdata[:,2:len(binsim.channels)] = np.transpose(binsim.add_block)
+
+        #binsim.log.info(outdata.shape)
+        binsim.log.info(outdata[0,0])
+        binsim.log.info(outdata[2,0])
 
         # Report buffer underrun - Still working with sounddevice package?
         if status == 4:

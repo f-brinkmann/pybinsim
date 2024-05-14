@@ -138,7 +138,7 @@ class SoundHandler(object):
                             continue
                         volume = entry.volume * loudness
                         #TODO this might need replacing with a different (albeit similar) function that handles addition of sources into one channel correctly
-                        add_at_start_channel(
+                        add_channel(
                             self._nc_output_buffer, volume * nc_block, entry.start_channel)
             # TODO This might be better done in a background thread so it doesn't block the audio thread, but that needs some benchmarking
             self._remove_stopped_players()
@@ -169,6 +169,7 @@ class PlayerEntry:
     player: Player
     start_channel: int
     volume: float
+    convolve: bool
     lock: threading.Lock
 
 
@@ -179,4 +180,10 @@ def add_at_start_channel(output, input, start_channel):
     output_start = max(0, start_channel)
     output_stop = max(start_channel + input.shape[0], 0)
     output[output_start:output_stop, :] += input[input_start:input_stop, :]
+    return output
+
+def add_channel(output, input, channel):
+    """Add input to output at the specified channel"""
+    end_ch = channel + input.shape[0]
+    output[channel:end_ch, :] += input[channel:end_ch]
     return output

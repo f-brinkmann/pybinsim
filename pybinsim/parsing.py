@@ -21,3 +21,10 @@ def parse_boolean(input):
         return input != 0 # same as bool(input)
     else:
         return None
+
+def parse_channel_list(channel_list: str) -> list[int]:
+    """Parse a string of integers separated by ',' to a list of ints"""
+    if channel_list:
+        return list(map(int, channel_list.split(',')))
+    else:
+        return list()
