@@ -20,3 +20,9 @@ junit_results.xml
 
 # profile files
 **.prof*
+
+# build folder
+build/
+
+# Mac temporary files
+.DS_Store
