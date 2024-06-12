@@ -4,10 +4,15 @@
 pyBinSim
 ========
 
-pyBinSim is a program for audio playback and partitioned convolution in the context of binaural synthesis. 
+pyBinSim is a program for audio playback and partitioned convolution in the context of binaural synthesis.
 
 Install
 -------
+
+Clone the pybinsim repository, e.g. using::
+
+    $ git clone https://github.com/tuil-emt/pybinsim.git
+    $ cd pybinsim
 
 For quick and easy installation, you may use the yml file that has been provided with the repository::
 
@@ -28,6 +33,10 @@ Additionally you will have to install pyTorch with the setup that satisfies your
 
 For more on this, see https://pytorch.org/get-started/locally/
 
+Finally, locally install pybinsim ::
+
+    $ pip install .
+
 
 Linux
 -----
@@ -46,7 +55,7 @@ For Fedora
 
     $ sudo dnf install gcc portaudio19-devel fftw-devel
 
-    
+
 Run
 ---
 
@@ -103,36 +112,36 @@ Description
 Basic Principle
 ----------------
 
-pyBinSim allows interactive playback of arbitrarily many sound files over so called players, each of which can be independently controlled. Players feed their audio into convolver channels, which represent virtual sound sources. The number of convover channels depends on the configuration option `maxChannels`. Each convolver channel applies an FIR filter to create the left and right channel. The output of all convolvers is summed in the end, an optional headphone EQ is applied and the stereo output is sent to the operating system. 
+pyBinSim allows interactive playback of arbitrarily many sound files over so called players, each of which can be independently controlled. Players feed their audio into convolver channels, which represent virtual sound sources. The number of convover channels depends on the configuration option `maxChannels`. Each convolver channel applies an FIR filter to create the left and right channel. The output of all convolvers is summed in the end, an optional headphone EQ is applied and the stereo output is sent to the operating system.
 
 .. image:: players-flowchart.drawio.svg
   :width: 400
   :alt: This flowchart shows how players can be independently controlled and that multiple players can feed any given convolver channel.
 
-The global playback and each individual player can be controlled over OSC messages. Each player is identfied by its player name, which defaults to the sound path. Therefore, the default behavior when re-playing an already playing file is to re-start the sound file. In contrast, setting the player name manually to a new one allows playing back a single sound file multiple times concurrently. 
+The global playback and each individual player can be controlled over OSC messages. Each player is identfied by its player name, which defaults to the sound path. Therefore, the default behavior when re-playing an already playing file is to re-start the sound file. In contrast, setting the player name manually to a new one allows playing back a single sound file multiple times concurrently.
 
-The filter for each convolver channel can also be selected via OSC messages. The messages contain the 
-index of the convolver channel for which the filter should be switched and a key to address the correct filter. Each key corresponds to one filter. 
+The filter for each convolver channel can also be selected via OSC messages. The messages contain the
+index of the convolver channel for which the filter should be switched and a key to address the correct filter. Each key corresponds to one filter.
 
 pyBinSim now features up to three separate convolvers on each convolver channel which enables you to exchange filter parts, like direct sound, early reflections and late reflections, in real-time. Each convolver runs independently from the others and their results are summed together. This needs to be considered when creating the corresponding filters.
 
 Also, pyBinSim offers you the possibility to run the convolution on a CUDA based graphics card. Especially for long filters (several seconds) or/and multiple sound sources, this can lead to a signficant speedup.
 
-    
+
 Config Parameter Description
 -----------------------------
 
-soundfile: 
-    Defines \*.wav file which is played back at startup. Sound file can contain up to maxChannels audio channels. Also accepts multiple files separated by '#'; Example: 'soundfile signals/sound1.wav#signals/sound2.wav'. The corresponding player is called ``config_soundfile``. When this config parameter is missing, nothing is played at startup. 
-blockSize: 
+soundfile:
+    Defines \*.wav file which is played back at startup. Sound file can contain up to maxChannels audio channels. Also accepts multiple files separated by '#'; Example: 'soundfile signals/sound1.wav#signals/sound2.wav'. The corresponding player is called ``config_soundfile``. When this config parameter is missing, nothing is played at startup.
+blockSize:
     Number of samples which are processed per block. Low values reduce delay but increase cpu load.
-ds_filterSize: 
-    Defines filter size of the direct sound filters. Filter size must be a mutltiple of blockSize. If your filters are a different length, they are either shortened or zero padded to the size indicated here. 
-early_filterSize: 
+ds_filterSize:
+    Defines filter size of the direct sound filters. Filter size must be a mutltiple of blockSize. If your filters are a different length, they are either shortened or zero padded to the size indicated here.
+early_filterSize:
     Defines filter size of the early filters. Filter size must be a mutltiple of blockSize. If your filters are a different length, they are either shortened or zero padded to the size indicated here.
-late_filterSize: 
+late_filterSize:
     Defines filter size of the late reverb filters. Filter size must be a mutltiple of blockSize. If your filters are a different length, they are either shortened or zero padded to the size indicated here.
-headphone_filterSize: 
+headphone_filterSize:
     Defines filter size of the headphone compensation filters. Filter size must be a mutltiple of blockSize.
 filterSource[mat/wav]:
     Choose between 'mat' or 'wav' to indicate whether you want to use filters stored as mat file or as seperate wav files.
@@ -140,15 +149,15 @@ filterDatabase:
     Enter path to the mat file containing your filters. Check example for structure of the mat file.
 filterList:
     Enter path to the filtermap.txt which specifies the mapping of keys to filters stored as wav files. Check example filtermap for formatting.
-maxChannels: 
+maxChannels:
     Maximum number of convolver channels/virtual sound sources which can be controlled during runtime. The value for maxChannels must match or exceed the number of channels in sound files. If you choose this value too high, processing power will be wasted.
-samplingRate: 
+samplingRate:
     Sample rate for filters and soundfiles. Caution: No automatic sample rate conversion.
-enableCrossfading: 
+enableCrossfading:
     Enable cross fade between audio blocks. Set 'False' or 'True'.
-useHeadphoneFilter: 
+useHeadphoneFilter:
     Enables headhpone equalization. The filterset should contain a filter with the identifier HPFILTER. Set 'False' or 'True'.
-loudnessFactor: 
+loudnessFactor:
     Factor for overall output loudness. Attention: Clipping may occur.
 loopSound:
     Enables looping of sound file or sound file list. Set 'False' or 'True'.
@@ -157,14 +166,14 @@ pauseConvolution:
 pauseAudioPlayback:
     Pauses audio playback (convolution keeps running). Set 'False' or 'True'.
 torchConvolution[cpu/cuda]:
-    Choose 'cpu' when convolution should be done on CPU or 'cuda' when you intend to you use a cuda enabled graphics cards. 
+    Choose 'cpu' when convolution should be done on CPU or 'cuda' when you intend to you use a cuda enabled graphics cards.
     For the latter, make sure torch is installed with CUDA support (see: https://pytorch.org/get-started/locally/)
 torchStorage[cpu/cuda]:
     Choose 'cpu' when filter should be stored in RAM or 'cuda' when you want to store filters directly on the graphics card memory.
     For the latter, make sure torch is installed with CUDA support (see: https://pytorch.org/get-started/locally/)
 ds_convolverActive:
     Enables or disables convolver. When only one convolver is needed, it's recommended to disable the others to save resources. Set 'False' or 'True'.
-early_convolverActive: 
+early_convolverActive:
     Enables or disables convolver. Set 'False' or 'True'.
 late_convolverActive:
     Enables or disables convolver. Set 'False' or 'True'.
@@ -212,7 +221,7 @@ A mat file should contain one ore more variables containing your filters. The ma
     "custom" [array(int, int ,int)]
     "filter" [array(single,2), array(double,2)]
 
-For headhpone filters, only the field filter is relevant. To reduce memory usage we advise to use single precision for the filters. To speedup the filter loading we advice to store the mat files on a SSD and to save the mat files without compression (which is not the default setting in MATLAB). Also take a look at the example_mat.mat file to understand the structure. 
+For headhpone filters, only the field filter is relevant. To reduce memory usage we advise to use single precision for the filters. To speedup the filter loading we advice to store the mat files on a SSD and to save the mat files without compression (which is not the default setting in MATLAB). Also take a look at the example_mat.mat file to understand the structure.
 
 OSC & ZMQ Message Examples
 --------------------------
@@ -244,7 +253,7 @@ When you want to apply a late filter::
 
     ZMQ:    ['/pyBinSim_late_Filter', 2, 0, 2, 0, 0, 0, 0, 0, 0, 0]
     OSC:    /pyBinSim_late_Filter 2 0 2 0 0 0 0 0 0 0 0 0 0 0 0 0
-      
+
 When you want to play another sound file you send::
 
     ZMQ:    ['/pyBinSimFile', 'folder/file_new.wav']
@@ -262,7 +271,7 @@ Because of issues with OSC when many messages are sent, multiple OSC receivers a
 OSC Message Reference
 ------------------------------
 
-This part uses a syntax where the OSC address pattern is followed by arguments described in curly braces and separated by spaces. The typing syntax follows Python conventions. Arguments with a default value can be ommitted. Due to the absence of keyword arguments in OSC it is not possible to use the default value for an argument if it precedes an argument you want to set. 
+This part uses a syntax where the OSC address pattern is followed by arguments described in curly braces and separated by spaces. The typing syntax follows Python conventions. Arguments with a default value can be ommitted. Due to the absence of keyword arguments in OSC it is not possible to use the default value for an argument if it precedes an argument you want to set.
 
 Set direct sound filter with convolver channel index and numerical filter key (9 or 15 numbers)::
 
@@ -300,7 +309,7 @@ player's output is sent to the start channel and consecutive channels, up to the
 channel count of the current sound file. If a player with the same name is
 already present, a new one with the same name will be created and used instead.::
 
-    /pyBinSimPlay {soundfile_list: string} {start_channel: int32 = 0} {loop: string["loop"|"single"] = "single"} {player_name: string|int32|float32 = soundfile_list} {volume: float32 = 1.0} {play: string["play"|"pause"] = "play"}   
+    /pyBinSimPlay {soundfile_list: string} {start_channel: int32 = 0} {loop: string["loop"|"single"] = "single"} {player_name: string|int32|float32 = soundfile_list} {volume: float32 = 1.0} {play: string["play"|"pause"] = "play"}
 
 Pause, stop or start a player::
 
@@ -308,7 +317,7 @@ Pause, stop or start a player::
 
 Change the output channel of a player::
 
-    /pyBinSimPlayerChannel {player_name: string} {start channel: int32} 
+    /pyBinSimPlayerChannel {player_name: string} {start channel: int32}
 
 Change the volume of a player::
 
