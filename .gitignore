@@ -24,5 +24,15 @@ junit_results.xml
 # build folder
 build/
 
-# Mac temporary files
+# Linux
+*~
+.Trash-*
+
+# Mac
 .DS_Store
+Icon
+._*
+
+# Windows
+Thumbs.db
+[Dd]esktop.ini
